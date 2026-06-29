@@ -1,7 +1,7 @@
 :root {
   --bg: #06060b;
   --fg: #f4f4f7;
-  --muted: #9a9aa8;
+  --muted: #cbccd6;
   --line: rgba(255, 255, 255, 0.12);
   --accent: #7c6cff;
   --maxw: 1280px;
@@ -90,6 +90,9 @@ html.lenis body {
 .content {
   position: relative;
   z-index: 2;
+  /* subtle dark halo: invisible on big bold text, but keeps small/gray copy
+     legible over bright palettes without needing a heavier scrim */
+  text-shadow: 0 1px 18px rgba(6, 6, 11, 0.45);
 }
 
 /* ---- Transition overlay (wipes during navigation) ---- */

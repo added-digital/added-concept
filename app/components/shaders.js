@@ -85,18 +85,20 @@ void main(){
   vec2 uv = vUv;
   // aspect-correct the sampling coords so the noise never stretches
   vec2 cuv = vec2(uv.x * uAspect, uv.y);
-  vec3 p = vec3(cuv * 2.4, uTime * 0.04 + uScroll * 0.7);
-  p.xy += uPointer * 0.18;
+  // evolve the noise faster + drift it diagonally so the gradient clearly flows
+  vec2 drift = vec2(uTime * 0.028, -uTime * 0.02);
+  vec3 p = vec3(cuv * 2.4 + drift, uTime * 0.1 + uScroll * 0.7);
+  p.xy += uPointer * 0.2;
   float n = fbm(p);
   float g = smoothstep(-0.7, 0.9, n + (uv.y - 0.5) * 1.1 + uScroll * 0.45);
   vec3 col = mix(uColorA, uColorB, g);
-  // faint flowing filaments
-  col += vec3(0.04) * smoothstep(0.85, 1.0, fbm(p * 3.0 + 4.0));
-  // exposure: keep it vibrant but stop bright palettes blowing out behind text
-  col *= 0.78;
-  // vignette to keep edges calm behind text
+  // flowing filaments (also animated through p)
+  col += vec3(0.05) * smoothstep(0.82, 1.0, fbm(p * 3.0 + 4.0));
+  // mild exposure trim — readability is handled by the CSS scrim, so keep it lively
+  col *= 0.9;
+  // soft vignette to calm the very edges
   float d = distance(uv, vec2(0.5));
-  col *= 1.0 - d * 0.85;
+  col *= 1.0 - d * 0.78;
   gl_FragColor = vec4(col, 1.0);
 }
 `;
