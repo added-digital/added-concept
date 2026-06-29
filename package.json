@@ -1,0 +1,25 @@
+{
+  "name": "added-webgl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ADDED — concept portfolio with persistent WebGL canvas and 3D page transitions (Next.js + React Three Fiber)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.10",
+    "lenis": "^1.1.18",
+    "next": "14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.15"
+  }
+}
