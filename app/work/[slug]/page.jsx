@@ -14,8 +14,8 @@ export default function ProjectPage({ params }) {
   const idx = projects.findIndex((p) => p.slug === project.slug);
   const next = projects[(idx + 1) % projects.length];
 
-  // set the scene theme for this project (also handles direct loads)
-  useThemeOnMount(project.theme);
+  // set the scene theme + giant word for this project (also handles direct loads)
+  useThemeOnMount(project.theme, project.word);
 
   return (
     <>
@@ -31,7 +31,11 @@ export default function ProjectPage({ params }) {
 
       {project.cover && (
         <section className="container case-cover">
-          <CaseGallery images={[project.cover]} alt={`${project.title} — cover`} />
+          <CaseGallery
+            images={[project.cover]}
+            alt={`${project.title} — cover`}
+            reveal={false}
+          />
         </section>
       )}
 

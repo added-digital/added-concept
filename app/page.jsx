@@ -7,7 +7,7 @@ import Footer from "@/app/components/Footer";
 import { baseTheme } from "@/lib/projects";
 
 export default function Home() {
-  useThemeOnMount(baseTheme);
+  useThemeOnMount(baseTheme, "ADDED");
   const { setTheme } = useTransition();
 
   return (

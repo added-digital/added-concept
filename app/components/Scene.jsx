@@ -2,6 +2,7 @@
 
 import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import { useTransition } from "@/app/providers/TransitionProvider";
 import { scroll, pointer } from "@/lib/store";
@@ -26,8 +27,10 @@ function damp(current, target, lambda, dt) {
  * real navigation (under the wipe), so shapes never pop during hover.
  */
 export default function Scene() {
-  const { themeRef, lookRef } = useTransition();
+  const { themeRef, lookRef, word, accent } = useTransition();
   const { size } = useThree();
+
+  const textRef = useRef();
 
   const sm = useRef({
     scroll: 0,
@@ -144,12 +147,39 @@ export default function Scene() {
     pUniforms.uShape.value = look.shape ?? 0; // discrete — set under the wipe
     pUniforms.uColorA.value.copy(cur.current.a);
     pUniforms.uColorB.value.copy(cur.current.b);
+
+    // giant word: parallax depth drift — recedes + lifts + scales as you scroll
+    if (textRef.current) {
+      const s = sm.current.scroll;
+      textRef.current.position.z = -3.5 - s * 2.2;
+      textRef.current.position.y = s * 2.2;
+      textRef.current.position.x = sm.current.px * 0.5;
+      textRef.current.rotation.y = sm.current.px * 0.05;
+      textRef.current.scale.setScalar(1 + s * 0.14);
+    }
   });
 
   return (
     <>
-      {/* fullscreen gradient background — clip-space quad, always fills canvas */}
-      <mesh renderOrder={-1} frustumCulled={false}>
+      {/* giant per-page word, sitting deep behind the particles */}
+      <group ref={textRef} position={[0, 0, -3.5]}>
+        <Text
+          key={word}
+          fontSize={2.4}
+          anchorX="center"
+          anchorY="middle"
+          letterSpacing={-0.04}
+          color={accent}
+          fillOpacity={0.3}
+          renderOrder={-5}
+        >
+          {word}
+        </Text>
+      </group>
+
+      {/* fullscreen gradient background — clip-space quad, always fills canvas.
+          renderOrder -10 so it paints before the word + particles. */}
+      <mesh renderOrder={-10} frustumCulled={false}>
         <planeGeometry args={[2, 2]} />
         <shaderMaterial
           vertexShader={BG_VERT}

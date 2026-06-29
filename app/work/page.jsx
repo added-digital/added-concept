@@ -12,7 +12,7 @@ const rgb = (c) =>
   )})`;
 
 export default function Work() {
-  useThemeOnMount(baseTheme);
+  useThemeOnMount(baseTheme, "WORK");
   const { setTheme } = useTransition();
 
   return (

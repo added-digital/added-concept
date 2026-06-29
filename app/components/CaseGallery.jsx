@@ -11,7 +11,7 @@ import { useEffect, useRef } from "react";
  *
  * Layout: items alternate between full-bleed and a two-up row for rhythm.
  */
-export default function CaseGallery({ images = [], alt = "" }) {
+export default function CaseGallery({ images = [], alt = "", reveal = true }) {
   const rootRef = useRef(null);
 
   useEffect(() => {
@@ -19,10 +19,14 @@ export default function CaseGallery({ images = [], alt = "" }) {
     if (!root) return;
     const frames = Array.from(root.querySelectorAll("[data-frame]"));
 
-    // Progressive enhancement: only now (JS is running) do we hide the frames,
-    // so a JS/observer failure can never leave images invisible.
+    // Scroll-reveal (clip-path wipe) — used for gallery rows further down the
+    // page. Skipped for lead images (e.g. the cover), which should just be
+    // present the moment the page-transition wipe lifts.
     let io;
-    if ("IntersectionObserver" in window) {
+    let fallback;
+    if (reveal && "IntersectionObserver" in window) {
+      // Progressive enhancement: only now (JS is running) do we hide the
+      // frames, so a JS/observer failure can never leave images invisible.
       frames.forEach((f) => f.classList.add("reveal-init"));
       io = new IntersectionObserver(
         (entries) => {
@@ -36,12 +40,11 @@ export default function CaseGallery({ images = [], alt = "" }) {
         { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
       );
       frames.forEach((f) => io.observe(f));
+      // Hard safety net: reveal everything after 1.6s no matter what.
+      fallback = window.setTimeout(() => {
+        frames.forEach((f) => f.classList.add("in"));
+      }, 1600);
     }
-
-    // Hard safety net: reveal everything after 1.6s no matter what.
-    const fallback = window.setTimeout(() => {
-      frames.forEach((f) => f.classList.add("in"));
-    }, 1600);
 
     // Parallax loop (only touches frames currently near the viewport)
     let raf;
@@ -67,7 +70,7 @@ export default function CaseGallery({ images = [], alt = "" }) {
       cancelAnimationFrame(raf);
       clearTimeout(fallback);
     };
-  }, [images]);
+  }, [images, reveal]);
 
   if (!images.length) return null;
 

@@ -49,7 +49,7 @@ const services = [
 ];
 
 export default function Studio() {
-  useThemeOnMount(baseTheme);
+  useThemeOnMount(baseTheme, "STUDIO");
 
   return (
     <>

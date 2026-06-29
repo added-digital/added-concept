@@ -33,6 +33,16 @@ export function TransitionProvider({ children }) {
   const [overlay, setOverlay] = useState("idle"); // idle | active | exit
   const busy = useRef(false);
 
+  // The giant word rendered in the WebGL layer + its colour. These are React
+  // state (not refs) because <Text> is a real component — they change once per
+  // page, not per frame, so a re-render here is cheap.
+  const [word, setWordState] = useState("ADDED");
+  const [accent, setAccentState] = useState(baseTheme.accent);
+  const setWord = useCallback((w, a) => {
+    if (w !== undefined) setWordState(w);
+    if (a) setAccentState(a);
+  }, []);
+
   // Set the target theme. `full` also swaps the particle look (used on page
   // mount / direct loads); plain calls (hover) only change the palette.
   const setTheme = useCallback((theme, full = false) => {
@@ -68,7 +78,9 @@ export function TransitionProvider({ children }) {
   );
 
   return (
-    <TransitionContext.Provider value={{ themeRef, lookRef, setTheme, navigate, overlay }}>
+    <TransitionContext.Provider
+      value={{ themeRef, lookRef, setTheme, setWord, word, accent, navigate, overlay }}
+    >
       {children}
       <div className={`transition-overlay ${overlay === "idle" ? "" : overlay}`} />
     </TransitionContext.Provider>
