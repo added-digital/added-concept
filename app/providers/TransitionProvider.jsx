@@ -24,14 +24,21 @@ const DURATION = 600; // must match .transition-overlay transition in globals.cs
 
 export function TransitionProvider({ children }) {
   const router = useRouter();
-  // Mutable ref the render loop reads — never triggers React re-renders.
+  // Mutable refs the render loop reads — never trigger React re-renders.
+  // themeRef = palette (lerps continuously, also previews on hover).
+  // lookRef  = particle shape + motion (changes only on real navigation / load,
+  //            so hover never causes a jarring shape swap).
   const themeRef = useRef({ ...baseTheme });
+  const lookRef = useRef({ ...baseTheme.particle });
   const [overlay, setOverlay] = useState("idle"); // idle | active | exit
   const busy = useRef(false);
 
-  // Set the WebGL target theme immediately (used on page mount / direct loads).
-  const setTheme = useCallback((theme) => {
-    if (theme) themeRef.current = theme;
+  // Set the target theme. `full` also swaps the particle look (used on page
+  // mount / direct loads); plain calls (hover) only change the palette.
+  const setTheme = useCallback((theme, full = false) => {
+    if (!theme) return;
+    themeRef.current = theme;
+    if (full && theme.particle) lookRef.current = theme.particle;
   }, []);
 
   // Animated navigation: morph theme now, wipe, push route, reveal.
@@ -39,7 +46,10 @@ export function TransitionProvider({ children }) {
     (href, theme) => {
       if (busy.current) return;
       busy.current = true;
-      if (theme) themeRef.current = theme; // scene starts morphing right away
+      if (theme) {
+        themeRef.current = theme; // palette starts morphing right away
+        if (theme.particle) lookRef.current = theme.particle; // shape swaps under the wipe
+      }
       setOverlay("active");
 
       window.setTimeout(() => {
@@ -58,7 +68,7 @@ export function TransitionProvider({ children }) {
   );
 
   return (
-    <TransitionContext.Provider value={{ themeRef, setTheme, navigate, overlay }}>
+    <TransitionContext.Provider value={{ themeRef, lookRef, setTheme, navigate, overlay }}>
       {children}
       <div className={`transition-overlay ${overlay === "idle" ? "" : overlay}`} />
     </TransitionContext.Provider>

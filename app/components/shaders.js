@@ -103,43 +103,81 @@ void main(){
 }
 `;
 
-// ---- Displaced blob (icosahedron pushed along normals by noise) ----
-export const BLOB_VERT = /* glsl */ `
-${SIMPLEX_3D}
+// ---- Particle field (instanced billboarded quads) ----
+// One system drives every page; the *shape* drawn in the fragment (petal / leaf
+// / orb / mote) and the motion are swapped per route via uniforms. Each quad is
+// an instance with a random seed/scale; it falls (or rises), sways, and spins.
+export const PARTICLE_VERT = /* glsl */ `
 uniform float uTime;
-uniform float uDistort;
+uniform float uSize;
+uniform float uFall;
+uniform float uSway;
+uniform float uSpin;
 uniform float uScroll;
-varying float vDisp;
-varying vec3  vNormalW;
-varying vec3  vWorldPos;
+uniform vec2  uPointer;
+attribute vec3  aPos;
+attribute float aSeed;
+attribute float aScale;
+varying vec2  vUv;
+varying float vSeed;
 
 void main(){
-  float t = uTime * 0.25;
-  float n1 = snoise(normal * 1.4 + t);
-  float n2 = snoise(position * 2.2 + t * 0.7);
-  float disp = (n1 * 0.65 + n2 * 0.35) * uDistort * (1.0 + uScroll * 0.7);
-  vec3 displaced = position + normal * disp;
-  vDisp = disp;
-  vec4 worldPos = modelMatrix * vec4(displaced, 1.0);
-  vWorldPos = worldPos.xyz;
-  vNormalW = normalize(mat3(modelMatrix) * normal);
-  gl_Position = projectionMatrix * viewMatrix * worldPos;
+  vUv = uv;
+  vSeed = aSeed;
+  float t = uTime;
+  float rangeY = 10.0;
+  // vertical travel (uFall<0 rises), wrapped so the field is endless
+  float dir = uFall >= 0.0 ? 1.0 : -1.0;
+  float y = aPos.y - t * uFall * (0.6 + aSeed * 0.8) - uScroll * 2.2 * dir;
+  y = mod(y + rangeY * 0.5, rangeY) - rangeY * 0.5;
+  // horizontal sway + a little pointer drift
+  float x = aPos.x + sin(t * uSway + aSeed * 6.2831) * (0.3 + aSeed * 0.7) + uPointer.x * 0.5;
+  float z = aPos.z;
+  // billboard the quad corner, spinning it in screen space
+  float ang = t * uSpin * (0.5 + aSeed) + aSeed * 6.2831;
+  float s = sin(ang), c = cos(ang);
+  vec2 corner = position.xy * uSize * (0.55 + aScale);
+  vec2 rot = vec2(corner.x * c - corner.y * s, corner.x * s + corner.y * c);
+  vec3 world = vec3(x, y, z) + vec3(rot, 0.0);
+  gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }
 `;
 
-export const BLOB_FRAG = /* glsl */ `
-uniform vec3 uColorA;
-uniform vec3 uColorB;
-varying float vDisp;
-varying vec3  vNormalW;
-varying vec3  vWorldPos;
+export const PARTICLE_FRAG = /* glsl */ `
+uniform vec3  uColorA;
+uniform vec3  uColorB;
+uniform float uShape;   // 0 petal, 1 leaf, 2 orb, 3 mote
+uniform float uOpacity;
+varying vec2  vUv;
+varying float vSeed;
 
 void main(){
-  vec3 V = normalize(cameraPosition - vWorldPos);
-  float fres = pow(1.0 - max(dot(V, normalize(vNormalW)), 0.0), 2.4);
-  vec3 base = mix(uColorA, uColorB, smoothstep(-0.45, 0.45, vDisp));
-  vec3 col = mix(base, uColorB, fres);
-  col += fres * 0.28; // softer rim so bright palettes don't clip to white
-  gl_FragColor = vec4(col, 1.0);
+  vec2 p = vUv - 0.5;
+  float alpha = 0.0;
+
+  if (uShape < 0.5) {
+    // petal: teardrop, pointed at the top
+    float taper = clamp(mix(1.0, 0.08, smoothstep(-0.5, 0.5, p.y)), 0.08, 1.0);
+    float d = length(vec2(p.x / (0.5 * taper), p.y / 0.55));
+    alpha = smoothstep(1.0, 0.78, d);
+  } else if (uShape < 1.5) {
+    // leaf: pointed ellipse with a faint central vein
+    float d = length(vec2(p.x / 0.34, p.y / 0.52));
+    alpha = smoothstep(1.0, 0.82, d);
+    alpha *= 1.0 - 0.3 * (smoothstep(0.05, 0.0, abs(p.x)) * step(abs(p.y), 0.46));
+  } else if (uShape < 2.5) {
+    // orb: soft disc with a brighter rim
+    float d = length(p);
+    alpha = smoothstep(0.5, 0.42, d);
+  } else {
+    // mote: soft round speck
+    float d = length(p);
+    alpha = smoothstep(0.5, 0.0, d);
+  }
+
+  if (alpha <= 0.002) discard;
+  vec3 col = mix(uColorA * 1.4 + 0.05, uColorB, vSeed);
+  col += 0.12;
+  gl_FragColor = vec4(col, alpha * uOpacity);
 }
 `;

@@ -5,7 +5,14 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useTransition } from "@/app/providers/TransitionProvider";
 import { scroll, pointer } from "@/lib/store";
-import { BG_VERT, BG_FRAG, BLOB_VERT, BLOB_FRAG } from "@/app/components/shaders";
+import {
+  BG_VERT,
+  BG_FRAG,
+  PARTICLE_VERT,
+  PARTICLE_FRAG,
+} from "@/app/components/shaders";
+
+const COUNT = 550;
 
 // frame-rate independent smoothing
 function damp(current, target, lambda, dt) {
@@ -13,21 +20,26 @@ function damp(current, target, lambda, dt) {
 }
 
 /**
- * The whole persistent scene: a full-viewport gradient plane + a displaced
- * blob. Both read the live target theme from the transition context and lerp
- * their uniforms toward it every frame, so navigation morphs the visuals.
+ * Persistent scene: a full-viewport gradient + an instanced particle field.
+ * Both lerp their palette toward the live theme. The particle *shape* and
+ * motion come from the transition context's lookRef, which only changes on
+ * real navigation (under the wipe), so shapes never pop during hover.
  */
 export default function Scene() {
-  const { themeRef } = useTransition();
+  const { themeRef, lookRef } = useTransition();
   const { size } = useThree();
 
-  const blobRef = useRef();
-  const groupRef = useRef();
+  const sm = useRef({
+    scroll: 0,
+    px: 0,
+    py: 0,
+    size: 0.17,
+    fall: 0.5,
+    sway: 0.6,
+    spin: 0.8,
+    opacity: 0.9,
+  });
 
-  // smoothed live values
-  const sm = useRef({ scroll: 0, px: 0, py: 0, distort: 0.4, vel: 0 });
-
-  // current (animating) palette colors
   const cur = useRef({
     a: new THREE.Color(0.04, 0.04, 0.09),
     b: new THREE.Color(0.36, 0.3, 0.92),
@@ -45,40 +57,74 @@ export default function Scene() {
     []
   );
 
-  const blobUniforms = useMemo(
+  const pUniforms = useMemo(
     () => ({
       uTime: { value: 0 },
       uScroll: { value: 0 },
-      uDistort: { value: 0.4 },
+      uPointer: { value: new THREE.Vector2(0, 0) },
+      uSize: { value: 0.17 },
+      uFall: { value: 0.5 },
+      uSway: { value: 0.6 },
+      uSpin: { value: 0.8 },
+      uShape: { value: 0 },
+      uOpacity: { value: 0.9 },
       uColorA: { value: new THREE.Color(0.04, 0.04, 0.09) },
       uColorB: { value: new THREE.Color(0.36, 0.3, 0.92) },
     }),
     []
   );
 
+  // Instanced geometry: one quad, COUNT instances with random pos/seed/scale.
+  const geometry = useMemo(() => {
+    const base = new THREE.PlaneGeometry(1, 1);
+    const g = new THREE.InstancedBufferGeometry();
+    g.index = base.index;
+    g.setAttribute("position", base.attributes.position);
+    g.setAttribute("uv", base.attributes.uv);
+
+    const aPos = new Float32Array(COUNT * 3);
+    const aSeed = new Float32Array(COUNT);
+    const aScale = new Float32Array(COUNT);
+    for (let i = 0; i < COUNT; i++) {
+      aPos[i * 3 + 0] = (Math.random() - 0.5) * 12; // x
+      aPos[i * 3 + 1] = (Math.random() - 0.5) * 10; // y
+      aPos[i * 3 + 2] = Math.random() * -4.5 + 1; // z (mostly behind focal plane)
+      aSeed[i] = Math.random();
+      aScale[i] = Math.random();
+    }
+    g.setAttribute("aPos", new THREE.InstancedBufferAttribute(aPos, 3));
+    g.setAttribute("aSeed", new THREE.InstancedBufferAttribute(aSeed, 1));
+    g.setAttribute("aScale", new THREE.InstancedBufferAttribute(aScale, 1));
+    g.instanceCount = COUNT;
+    return g;
+  }, []);
+
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
     const t = state.clock.elapsedTime;
     const theme = themeRef.current;
+    const look = lookRef.current || {};
 
-    // --- smooth the live inputs ---
+    // smooth live inputs
     sm.current.scroll = damp(sm.current.scroll, scroll.progress, 4, dt);
     sm.current.px = damp(sm.current.px, pointer.x, 3, dt);
     sm.current.py = damp(sm.current.py, pointer.y, 3, dt);
-    sm.current.distort = damp(sm.current.distort, theme.distort ?? 0.4, 2.5, dt);
-    // clamp the raw velocity, then smooth it — prevents geometry spiking when a
-    // route change makes Lenis report a momentary huge scroll velocity.
-    const clampedVel = Math.min(Math.abs(scroll.velocity) * 0.02, 0.25);
-    sm.current.vel = damp(sm.current.vel, clampedVel, 5, dt);
 
-    // --- morph palette toward the target theme ---
-    const targetA = theme.colorA || [0.04, 0.04, 0.09];
-    const targetB = theme.colorB || [0.36, 0.3, 0.92];
+    // smooth the particle motion toward the current page's profile
+    sm.current.size = damp(sm.current.size, look.size ?? 0.17, 3, dt);
+    sm.current.fall = damp(sm.current.fall, look.fall ?? 0.5, 3, dt);
+    sm.current.sway = damp(sm.current.sway, look.sway ?? 0.6, 3, dt);
+    sm.current.spin = damp(sm.current.spin, look.spin ?? 0.8, 3, dt);
+    sm.current.opacity = damp(sm.current.opacity, look.opacity ?? 0.9, 4, dt);
+
+    // morph palette
+    const tA = theme.colorA || [0.04, 0.04, 0.09];
+    const tB = theme.colorB || [0.36, 0.3, 0.92];
     const k = 1 - Math.exp(-2.5 * dt);
-    cur.current.a.lerp(new THREE.Color(targetA[0], targetA[1], targetA[2]), k);
-    cur.current.b.lerp(new THREE.Color(targetB[0], targetB[1], targetB[2]), k);
+    cur.current.a.lerp(new THREE.Color(tA[0], tA[1], tA[2]), k);
+    cur.current.b.lerp(new THREE.Color(tB[0], tB[1], tB[2]), k);
 
-    // --- push to background uniforms ---
+    // background
     bgUniforms.uTime.value = t;
     bgUniforms.uScroll.value = sm.current.scroll;
     bgUniforms.uAspect.value = size.height > 0 ? size.width / size.height : 1;
@@ -86,22 +132,18 @@ export default function Scene() {
     bgUniforms.uColorB.value.copy(cur.current.b);
     bgUniforms.uPointer.value.set(sm.current.px, sm.current.py);
 
-    // --- push to blob uniforms ---
-    blobUniforms.uTime.value = t;
-    blobUniforms.uScroll.value = sm.current.scroll + sm.current.vel;
-    blobUniforms.uDistort.value = sm.current.distort;
-    blobUniforms.uColorA.value.copy(cur.current.a);
-    blobUniforms.uColorB.value.copy(cur.current.b);
-
-    // --- gentle, scroll + pointer reactive motion on the blob ---
-    if (groupRef.current) {
-      groupRef.current.rotation.y = t * 0.12 + sm.current.px * 0.4;
-      groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.15 + sm.current.py * 0.3;
-      const s = 1 - sm.current.scroll * 0.18;
-      groupRef.current.scale.setScalar(s);
-      // drift slightly down and back as the page scrolls
-      groupRef.current.position.y = -sm.current.scroll * 1.2;
-    }
+    // particles
+    pUniforms.uTime.value = t;
+    pUniforms.uScroll.value = sm.current.scroll;
+    pUniforms.uPointer.value.set(sm.current.px, sm.current.py);
+    pUniforms.uSize.value = sm.current.size;
+    pUniforms.uFall.value = sm.current.fall;
+    pUniforms.uSway.value = sm.current.sway;
+    pUniforms.uSpin.value = sm.current.spin;
+    pUniforms.uOpacity.value = sm.current.opacity;
+    pUniforms.uShape.value = look.shape ?? 0; // discrete — set under the wipe
+    pUniforms.uColorA.value.copy(cur.current.a);
+    pUniforms.uColorB.value.copy(cur.current.b);
   });
 
   return (
@@ -118,17 +160,16 @@ export default function Scene() {
         />
       </mesh>
 
-      {/* displaced blob */}
-      <group ref={groupRef}>
-        <mesh ref={blobRef}>
-          <icosahedronGeometry args={[1.35, 14]} />
-          <shaderMaterial
-            vertexShader={BLOB_VERT}
-            fragmentShader={BLOB_FRAG}
-            uniforms={blobUniforms}
-          />
-        </mesh>
-      </group>
+      {/* per-page particle field */}
+      <mesh geometry={geometry} frustumCulled={false}>
+        <shaderMaterial
+          vertexShader={PARTICLE_VERT}
+          fragmentShader={PARTICLE_FRAG}
+          uniforms={pUniforms}
+          transparent
+          depthWrite={false}
+        />
+      </mesh>
     </>
   );
 }

@@ -276,11 +276,22 @@ html.lenis body {
 .work-card:hover {
   transform: translateY(-6px);
 }
+.work-card__img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.work-card:hover .work-card__img {
+  transform: scale(1.06);
+}
 .work-card__bg {
   position: absolute;
   inset: 0;
   z-index: -1;
-  opacity: 0.9;
 }
 .work-card__label {
   display: flex;
@@ -364,6 +375,85 @@ html.lenis body {
   letter-spacing: -0.03em;
   line-height: 1;
   margin-top: 16px;
+}
+
+/* ---- Case media: cover, gallery, parallax frames, pull-quote ---- */
+.case-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 3vw, 40px);
+}
+.gallery-row {
+  display: grid;
+  gap: clamp(20px, 3vw, 40px);
+}
+.gallery-row.one {
+  grid-template-columns: 1fr;
+}
+.gallery-row.two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.media-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  margin: 0;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  aspect-ratio: 16 / 10;
+  transition: clip-path 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gallery-row.one .media-frame {
+  aspect-ratio: 16 / 9;
+}
+/* Hidden state is applied by JS (.reveal-init); without JS the image just
+   shows. JS then adds .in to wipe it open on scroll. */
+.media-frame.reveal-init {
+  clip-path: inset(0 0 100% 0);
+}
+.media-frame.reveal-init.in {
+  clip-path: inset(0 0 0 0);
+}
+.media-frame__inner {
+  position: absolute;
+  top: -7%;
+  left: 0;
+  right: 0;
+  height: 114%; /* overscan so parallax never reveals an edge */
+  will-change: transform;
+}
+.media-frame__inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* full-bleed lead cover */
+.case-cover {
+  margin-top: clamp(24px, 5vw, 56px);
+}
+.case-cover .media-frame {
+  aspect-ratio: 21 / 9;
+}
+
+.pull-quote {
+  font-size: clamp(28px, 5vw, 64px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  max-width: 18ch;
+  padding-block: clamp(40px, 8vh, 96px);
+}
+
+@media (max-width: 760px) {
+  .gallery-row.two {
+    grid-template-columns: 1fr;
+  }
+  .case-cover .media-frame {
+    aspect-ratio: 16 / 10;
+  }
 }
 
 /* ---- Services ---- */

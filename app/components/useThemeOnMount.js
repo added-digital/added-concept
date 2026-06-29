@@ -10,7 +10,8 @@ import { useTransition } from "@/app/providers/TransitionProvider";
 export default function useThemeOnMount(theme) {
   const { setTheme } = useTransition();
   useEffect(() => {
-    setTheme(theme);
+    // full = true → also set the particle shape/motion for this page
+    setTheme(theme, true);
     // scroll reset is handled by SmoothScroll (through Lenis) on route change
   }, [setTheme, theme]);
 }

@@ -37,12 +37,14 @@ export default function Work() {
               onMouseEnter={() => setTheme(p.theme)}
               onMouseLeave={() => setTheme(baseTheme)}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="work-card__img" src={p.cover} alt={p.title} loading="lazy" />
               <div
                 className="work-card__bg"
                 style={{
-                  background: `linear-gradient(135deg, ${rgb(p.theme.colorA)}, ${rgb(
+                  background: `linear-gradient(150deg, ${rgb(
                     p.theme.colorB
-                  )})`,
+                  )}22 0%, transparent 38%), linear-gradient(180deg, rgba(6,6,11,0) 30%, rgba(6,6,11,0.82) 100%)`,
                 }}
               />
               <div className="work-card__label">

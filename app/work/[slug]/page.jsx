@@ -3,6 +3,7 @@
 import { notFound } from "next/navigation";
 import useThemeOnMount from "@/app/components/useThemeOnMount";
 import TransitionLink from "@/app/components/TransitionLink";
+import CaseGallery from "@/app/components/CaseGallery";
 import Footer from "@/app/components/Footer";
 import { projects, getProject } from "@/lib/projects";
 
@@ -28,6 +29,12 @@ export default function ProjectPage({ params }) {
         </p>
       </section>
 
+      {project.cover && (
+        <section className="container case-cover">
+          <CaseGallery images={[project.cover]} alt={`${project.title} — cover`} />
+        </section>
+      )}
+
       <section className="container">
         <div className="proj-meta-grid">
           <div>
@@ -50,7 +57,17 @@ export default function ProjectPage({ params }) {
 
         <p className="proj-body">{project.description}</p>
 
-        <div className="proj-nav">
+        {project.caption && (
+          <p className="pull-quote" style={{ color: project.theme.accent }}>
+            {project.caption}
+          </p>
+        )}
+
+        {project.gallery?.length > 0 && (
+          <CaseGallery images={project.gallery} alt={project.title} />
+        )}
+
+        <div className="proj-nav" style={{ marginTop: "clamp(60px, 10vh, 120px)" }}>
           <TransitionLink href="/work" theme={project.theme}>
             ← All work
           </TransitionLink>
